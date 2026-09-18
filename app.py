@@ -21,19 +21,25 @@ option = st.radio(
 )
 kind = 'denue' if option == 'DENUE' else 'censo'
 
-try:
-    with st.spinner('Preparando los datos oficiales…'):
-        path = prepare(kind)
+@st.cache_data(show_spinner=False)
+def load_package(product_kind):
+    path = prepare(product_kind)
+    bytes_data = path.read_bytes()
     with zipfile.ZipFile(path) as package:
         meta = json.loads(package.read('procedencia.json'))
+    return bytes_data, path.name, meta
+
+try:
+    with st.spinner('Cargando los datos oficiales…'):
+        data_bytes, file_name, meta = load_package(kind)
     st.success(f'Listo: {meta["filas"]:,} filas · {len(meta["columnas"])} columnas')
     st.download_button(
         'Extraer',
-        data=path.read_bytes(),
-        file_name=path.name,
+        data=data_bytes,
+        file_name=file_name,
         mime='application/zip',
         type='primary',
-        width='stretch',
+        use_container_width=True,
     )
     st.caption('El ZIP contiene únicamente archivos Parquet y procedencia para la opción elegida.')
     if kind == 'denue':
